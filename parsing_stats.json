@@ -1,14 +1,14 @@
 {
-  "start_time": "2026-02-03T17:45:37.058819",
+  "start_time": "2026-02-04T14:01:55.337875",
   "total_companies": 3,
-  "success_companies": 3,
-  "success_declarations": 3,
+  "success_companies": 0,
+  "success_declarations": 0,
   "errors": 0,
-  "api_errors": 0,
-  "auth_errors": 0,
+  "api_errors": 3,
+  "auth_errors": 3,
   "exceptions": 0,
-  "total_time": 67.35000000000001,
-  "end_time": "2026-02-03T17:46:42.350533",
-  "success_rate": 100.0,
-  "avg_time_per_company": 22.45
+  "total_time": 130.95,
+  "end_time": "2026-02-04T14:04:03.544988",
+  "success_rate": 0.0,
+  "avg_time_per_company": 43.65
 }

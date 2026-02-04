@@ -1,5 +1,6 @@
 """
-СКРИПТ ДЛЯ СБОРА ВСЕХ ССЫЛОК НА КОМПАНИИ С FSA
+УЛУЧШЕННЫЙ СКРИПТ ДЛЯ СБОРА ССЫЛОК НА КОМПАНИИ С FSA
+С ФИЛЬТРОМ ПО СТАТУСУ "ДЕЙСТВУЕТ"
 """
 import asyncio
 import aiohttp
@@ -19,7 +20,7 @@ except ImportError:
 # Настройки
 COMPANIES_API = f"{API_BASE}/ral/common/companies"
 OUTPUT_FILE = "all_links.txt"
-BATCH_SIZE = 1000  # Увеличиваем размер пачки для быстрой обработки
+BATCH_SIZE = 1000  # Размер пачки
 TEMP_FILE = "links_temp.txt"
 
 # Заголовки
@@ -29,7 +30,7 @@ HEADERS = {
     "authorization": TOKEN,
     "cache-control": "no-cache",
     "pragma": "no-cache",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "referer": f"{BASE_URL}/ral",
     "origin": BASE_URL
 }
@@ -65,15 +66,17 @@ def load_existing_links(filename):
     return existing_links
 
 async def get_total_companies(session):
-    """Получить общее количество компаний"""
+    """Получить общее количество компаний со статусом 'Действует'"""
     params = {
         "page": 0,
         "size": 1,
-        "sort": "id,asc"
+        "sort": "id,asc",
+        "idStatus": 6  # ВАЖНО: 6 = "Действует"
     }
     
     try:
         log(f"Запрос к API: {COMPANIES_API}")
+        log(f"Параметры: {params}")
         
         async with session.get(COMPANIES_API, params=params, headers=HEADERS) as response:
             log(f"Статус запроса: {response.status}")
@@ -81,9 +84,7 @@ async def get_total_companies(session):
             if response.status == 200:
                 data = await response.json()
                 total_elements = data.get("totalElements", 0)
-                log(f"Всего компаний найдено: {total_elements:,}")
-                
-                # Дополнительная информация
+                log(f"Всего компаний со статусом 'Действует': {total_elements:,}")
                 log(f"Количество страниц: {data.get('totalPages', 0)}")
                 
                 return total_elements
@@ -114,7 +115,8 @@ async def fetch_companies_page(session, page, size=BATCH_SIZE, retry=5):
     params = {
         "page": page,
         "size": size,
-        "sort": "id,asc"
+        "sort": "id,asc",
+        "idStatus": 6  # ВАЖНО: 6 = "Действует"
     }
     
     for attempt in range(retry):
@@ -167,14 +169,15 @@ async def fetch_companies_page(session, page, size=BATCH_SIZE, retry=5):
     return None
 
 async def collect_all_links():
-    """Собрать все ссылки на компании"""
+    """Собрать все ссылки на компании со статусом 'Действует'"""
     log("=" * 70)
-    log("НАЧИНАЕМ СБОР ССЫЛОК НА КОМПАНИИ")
+    log("НАЧИНАЕМ СБОР ССЫЛОК НА КОМПАНИИ СО СТАТУСОМ 'ДЕЙСТВУЕТ'")
     log("=" * 70)
     log(f"Используем API: {COMPANIES_API}")
     log(f"BASE_URL: {BASE_URL}")
     log(f"API_BASE: {API_BASE}")
     log(f"Размер пачки: {BATCH_SIZE}")
+    log(f"Фильтр: idStatus=6 (Действует)")
     
     # Загружаем уже существующие ссылки
     existing_links = load_existing_links(OUTPUT_FILE)
@@ -187,7 +190,7 @@ async def collect_all_links():
     
     async with aiohttp.ClientSession(headers=HEADERS, timeout=timeout) as session:
         # Получаем общее количество компаний
-        log("Получаю общее количество компаний...")
+        log("Получаю общее количество компаний со статусом 'Действует'...")
         total = await get_total_companies(session)
         
         if total == 0:
@@ -196,7 +199,7 @@ async def collect_all_links():
         
         # Рассчитываем количество страниц
         total_pages = (total + BATCH_SIZE - 1) // BATCH_SIZE
-        log(f"Всего компаний: {total:,}")
+        log(f"Всего компаний со статусом 'Действует': {total:,}")
         log(f"Всего страниц для обработки: {total_pages:,}")
         
         if total_pages == 0:
@@ -277,7 +280,7 @@ async def collect_all_links():
             
             # Сохраняем статистику каждые 50 страниц
             if (page + 1) % 50 == 0 or page == total_pages - 1:
-                save_stats(all_links, page + 1, total_pages)
+                save_stats(all_links, page + 1, total_pages, total)
     
     # Удаляем временный файл после успешного завершения
     if os.path.exists(TEMP_FILE):
@@ -289,14 +292,16 @@ async def collect_all_links():
     
     return all_links
 
-def save_stats(links, current_page, total_pages):
+def save_stats(links, current_page, total_pages, total_companies):
     """Сохраняет статистику сбора"""
     stats = {
         "total_links": len(links),
+        "total_companies_with_status_active": total_companies,
         "current_page": current_page,
         "total_pages": total_pages,
         "collection_date": time.strftime("%Y-%m-%d %H:%M:%S"),
         "source": "https://pub.fsa.gov.ru/ral",
+        "filter": "idStatus=6 (Действует)",
         "batch_size": BATCH_SIZE,
         "links_sample": links[:5] if links else []
     }
@@ -327,7 +332,7 @@ async def main():
     """Основная функция"""
     try:
         log("=" * 70)
-        log("ЗАПУСК СКРИПТА СБОРА ССЫЛОК")
+        log("ЗАПУСК СКРИПТА СБОРА ССЫЛОК (ТОЛЬКО 'ДЕЙСТВУЕТ')")
         log("=" * 70)
         
         # Проверяем конфигурацию
@@ -352,25 +357,13 @@ async def main():
             log(f"Результат сохранен в: {OUTPUT_FILE}")
             log(f"Статистика сохранена в: links_stats.json")
             
-            # Создаем тестовый файл с первыми 1000 ссылок
-            if len(links) > 1000:
-                test_file = "test_1000_links.txt"
+            # Создаем тестовый файл с первыми 100 ссылок
+            if len(links) > 100:
+                test_file = "test_100_links.txt"
                 with open(test_file, "w", encoding="utf-8") as f:
-                    for link in links[:1000]:
+                    for link in links[:100]:
                         f.write(f"{link}\n")
                 log(f"Тестовый файл создан: {test_file}")
-            
-            # Разделяем на части для удобства
-            parts = min(10, len(links))
-            part_size = len(links) // parts
-            for i in range(parts):
-                start_idx = i * part_size
-                end_idx = start_idx + part_size if i < parts - 1 else len(links)
-                part_file = f"all_links_part_{i+1:02d}.txt"
-                with open(part_file, "w", encoding="utf-8") as f:
-                    for link in links[start_idx:end_idx]:
-                        f.write(f"{link}\n")
-                log(f"Часть {i+1}/{parts}: {part_file} ({end_idx-start_idx:,} ссылок)")
             
             log(f"\nПримеры ссылок (первые 5):")
             for i, link in enumerate(links[:5], 1):

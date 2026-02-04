@@ -1,5 +1,6 @@
 """
-ОСНОВНОЙ СКРИПТ ПАРСИНГА ДАННЫХ FSA
+УЛУЧШЕННЫЙ ОСНОВНОЙ СКРИПТ ПАРСИНГА ДАННЫХ FSA
+С ПОЛНЫМ ИЗВЛЕЧЕНИЕМ ОБЛАСТИ АККРЕДИТАЦИИ И НАЦИОНАЛЬНОЙ ЧАСТИ
 """
 import asyncio
 import aiohttp
@@ -22,11 +23,11 @@ except ImportError:
 
 # Настройки
 LINKS_FILE = "all_links.txt"
-OUTPUT_FILE = f"FSA_реестры_все_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-OUTPUT_CSV = f"FSA_реестры_все_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+OUTPUT_FILE = f"FSA_реестры_полные_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+OUTPUT_CSV = f"FSA_реестры_полные_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 STATS_FILE = "parsing_stats.json"
 
-CONCURRENCY = 25  # Увеличил для обработки 38000+ компаний
+CONCURRENCY = 25
 REQUEST_TIMEOUT = 60
 RETRY_COUNT = 3
 RETRY_DELAY = 3
@@ -43,7 +44,7 @@ BASE_HEADERS = {
     "origin": "https://pub.fsa.gov.ru"
 }
 
-# Словарь для преобразования английских названий столбцов в русские
+# Словарь для преобразования названий столбцов в русские
 COLUMN_TRANSLATIONS = {
     # Основные поля
     "source_url": "Ссылка на компанию",
@@ -59,62 +60,87 @@ COLUMN_TRANSLATIONS = {
     "company.id": "ID",
     "company.fullName": "Полное наименование",
     "company.shortName": "Сокращенное наименование",
-    "company.inn": "ИНН",
-    "company.kpp": "КПП",
-    "company.ogrn": "ОГРН",
-    "company.ogrnDate": "Дата ОГРН",
-    "company.okpo": "ОКПО",
-    "company.okato": "ОКАТО",
-    "company.oktmo": "ОКТМО",
-    "company.okfs": "ОКФС",
-    "company.okopf": "ОКОПФ",
-    "company.okogu": "ОКОГУ",
-    "company.okved": "ОКВЭД",
-    "company.phone": "Телефон",
-    "company.fax": "Факс",
-    "company.email": "Email",
-    "company.website": "Веб-сайт",
-    "company.address": "Адрес",
-    "company.address.postalCode": "Индекс",
-    "company.address.region": "Регион",
-    "company.address.city": "Город",
-    "company.address.street": "Улица",
-    "company.address.house": "Дом",
-    "company.address.building": "Корпус",
-    "company.address.apartment": "Квартира",
-    "company.head.lastName": "Фамилия руководителя",
-    "company.head.firstName": "Имя руководителя",
-    "company.head.middleName": "Отчество руководителя",
-    "company.head.position": "Должность руководителя",
-    "company.status": "Статус",
-    "company.status.code": "Код статуса",
-    "company.status.name": "Наименование статуса",
-    "company.status.date": "Дата статуса",
-    "company.accreditation.id": "ID аккредитации",
-    "company.accreditation.number": "Номер аккредитации",
-    "company.accreditation.dateFrom": "Дата начала аккредитации",
-    "company.accreditation.dateTo": "Дата окончания аккредитации",
-    "company.accreditation.status": "Статус аккредитации",
-    "company.accreditation.status.code": "Код статуса аккредитации",
-    "company.accreditation.status.name": "Наименование статуса аккредитации",
-    "company.accreditation.idAccredScopeFile": "ID файла области аккредитации",
+    "company.regDate": "Дата внесения в реестр",
+    "company.status.name": "Статус",
+    "company.idType": "Тип аккредитованного лица",
+    "company.idAccStandard": "ID стандарта",
     
-    # Поля декларации
-    "declaration.id": "ID декларации",
-    "declaration.number": "Номер декларации",
-    "declaration.date": "Дата декларации",
-    "declaration.status": "Статус декларации",
-    "declaration.status.code": "Код статуса декларации",
-    "declaration.status.name": "Наименование статуса декларации",
-    "declaration.declarant.lastName": "Фамилия декларанта",
-    "declaration.declarant.firstName": "Имя декларанта",
-    "declaration.declarant.middleName": "Отчество декларанта",
-    "declaration.declarant.position": "Должность декларанта",
-    "declaration.accreditationScope": "Область аккредитации",
-    "declaration.accreditationScope.code": "Код области аккредитации",
-    "declaration.accreditationScope.name": "Наименование области аккредитации",
-    "declaration.files": "Файлы декларации",
-    "declaration.documents": "Документы декларации"
+    # Аккредитация
+    "company.regNumbers": "Уникальный номер аккредитации",
+    "accreditation_number": "Номер аккредитации",
+    "accreditation_begin_date": "Дата начала аккредитации",
+    "accreditation_end_date": "Дата окончания аккредитации",
+    "accreditation_file_id": "ID файла области аккредитации",
+    
+    # Контакты компании
+    "company_phone": "Номер телефона",
+    "company_email": "Адрес электронной почты",
+    "company_website": "Адрес сайта",
+    "company_fax": "Факс",
+    
+    # Адрес компании
+    "company_address_full": "Адрес места осуществления деятельности",
+    "company_address_postal_code": "Индекс",
+    "company_address_region": "Регион",
+    "company_address_city": "Город",
+    "company_address_street": "Улица",
+    "company_address_house": "Дом",
+    
+    # Руководитель компании
+    "head_full_name": "ФИО руководителя",
+    "head_surname": "Фамилия руководителя",
+    "head_name": "Имя руководителя",
+    "head_patronymic": "Отчество руководителя",
+    "head_post": "Должность руководителя",
+    "head_phone": "Номер телефона руководителя",
+    
+    # Данные заявителя
+    "applicant_type": "Заявитель: Тип заявителя",
+    "applicant_legal_form": "Заявитель: Организационно-правовая форма",
+    "applicant_full_name": "Заявитель: Полное наименование",
+    "applicant_short_name": "Заявитель: Сокращенное наименование",
+    "applicant_inn": "Заявитель: ИНН",
+    "applicant_kpp": "Заявитель: КПП",
+    "applicant_ogrn": "Заявитель: ОГРН",
+    "applicant_is_government": "Заявитель: Государственное предприятие",
+    "applicant_is_foreign": "Заявитель: Иностранная организация",
+    "applicant_tax_authority": "Заявитель: Наименование налогового органа",
+    "applicant_tax_reg_date": "Заявитель: Дата постановки на учет в налоговом органе",
+    "applicant_head_full_name": "Заявитель: ФИО руководителя",
+    "applicant_head_post": "Заявитель: Должность руководителя",
+    "applicant_phone": "Заявитель: Номер телефона",
+    "applicant_email": "Заявитель: Адрес электронной почты",
+    "applicant_address": "Заявитель: Адрес места нахождения",
+    "applicant_postal_code": "Заявитель: Почтовый индекс",
+    
+    # Национальная часть Единого реестра
+    "np_included": "Включен в национальную часть Единого реестра",
+    "np_decision_number": "НЧ ЕР: Номер решения о включении",
+    "np_decision_date": "НЧ ЕР: Дата решения о включении",
+    "np_service_number": "НЧ ЕР: Номер государственной услуги",
+    "np_service_date": "НЧ ЕР: Дата государственной услуги",
+    "np_last_decision_number": "НЧ ЕР: Номер последнего решения",
+    "np_last_decision_date": "НЧ ЕР: Дата последнего решения",
+    "np_tech_regulations": "НЧ ЕР: Технический регламент ЕАЭС",
+    "np_tn_ved_codes": "НЧ ЕР: Коды ТН ВЭД ЕАЭС",
+    "np_has_right_eaeu": "НЧ ЕР: Право на проведение оценки (Решения ЕЭК № 620)",
+    
+    # Область аккредитации
+    "scope_type": "Область аккредитации: Тип",
+    "scope_accredited_entity": "Область аккредитации: Наименование аккредитованного лица",
+    "scope_address": "Область аккредитации: Адрес места осуществления деятельности",
+    "scope_region": "Область аккредитации: Регион",
+    "scope_business_type": "Область аккредитации: Вид деятельности",
+    
+    # Поля области аккредитации (из businessLineTypes.fields)
+    "scope_note": "Примечание",
+    "scope_tn_ved_code": "Код ТН ВЭД (ЕАЭС)",
+    "scope_measurement_type": "Вид/метод измерений",
+    "scope_measurement_range": "Показатели/диапазон",
+    "scope_methodology": "Методика",
+    "scope_test_object": "Наименование объекта испытаний",
+    "scope_measurement_group": "Группа средств измерений",
+    "scope_error": "Погрешность",
 }
 
 def log(msg):
@@ -137,36 +163,6 @@ def extract_company_id(url):
     except:
         return ""
 
-def flatten(obj, parent="", out=None):
-    """Преобразование JSON в плоскую структуру"""
-    if out is None:
-        out = {}
-    
-    if obj is None:
-        out[parent] = ""
-    elif isinstance(obj, dict):
-        for k, v in obj.items():
-            new_key = f"{parent}.{k}" if parent else k
-            flatten(v, new_key, out)
-    elif isinstance(obj, list):
-        if not obj:
-            out[parent] = ""
-        else:
-            # Для списков сохраняем как JSON строку
-            try:
-                out[parent] = json.dumps(obj, ensure_ascii=False)
-            except:
-                out[parent] = str(obj)
-    else:
-        if isinstance(obj, bool):
-            out[parent] = "Да" if obj else "Нет"
-        elif isinstance(obj, (int, float)):
-            out[parent] = obj
-        else:
-            out[parent] = str(obj)
-    
-    return out
-
 def extract_doc_id(company_json):
     """Извлечение ID документа аккредитации"""
     try:
@@ -178,6 +174,323 @@ def extract_doc_id(company_json):
         return None
     except:
         return None
+
+def extract_contacts(contacts_array):
+    """Извлекает контакты из массива"""
+    contacts = {
+        'phone': '',
+        'email': '',
+        'fax': '',
+        'website': ''
+    }
+    
+    if not contacts_array:
+        return contacts
+    
+    for contact in contacts_array:
+        contact_type = contact.get('idType')
+        value = contact.get('value', '')
+        
+        if contact_type == 1:  # Телефон
+            contacts['phone'] = value
+        elif contact_type == 2:  # Факс
+            contacts['fax'] = value
+        elif contact_type == 3:  # Веб-сайт
+            contacts['website'] = value
+        elif contact_type == 4:  # Email
+            contacts['email'] = value
+    
+    return contacts
+
+def extract_address(addresses_array, address_type=3):
+    """Извлекает адрес из массива адресов"""
+    address_data = {
+        'full': '',
+        'postal_code': '',
+        'region': '',
+        'city': '',
+        'street': '',
+        'house': ''
+    }
+    
+    if not addresses_array:
+        return address_data
+    
+    # Ищем адрес нужного типа (3 = место осуществления деятельности)
+    target_address = None
+    for addr in addresses_array:
+        if addr.get('idType') == address_type:
+            target_address = addr
+            break
+    
+    # Если не нашли нужный тип, берем первый
+    if not target_address and addresses_array:
+        target_address = addresses_array[0]
+    
+    if target_address:
+        address_data['full'] = target_address.get('fullAddress', '')
+        address_data['postal_code'] = target_address.get('postCode', '')
+        
+        # Пробуем извлечь регион, город и т.д. из uniqueAddress или fullAddress
+        unique_addr = target_address.get('uniqueAddress', '')
+        if unique_addr:
+            address_data['region'] = unique_addr.split(',')[0] if ',' in unique_addr else ''
+    
+    return address_data
+
+def extract_head_person(company_data):
+    """Извлекает данные руководителя"""
+    head_data = {}
+    
+    try:
+        head_person = company_data.get('headPerson', {})
+        if head_person:
+            surname = head_person.get('surname', '')
+            name = head_person.get('name', '')
+            patronymic = head_person.get('patronymic', '')
+            
+            head_data['head_surname'] = surname
+            head_data['head_name'] = name
+            head_data['head_patronymic'] = patronymic
+            head_data['head_full_name'] = f"{surname} {name} {patronymic}".strip()
+            
+            # Контакты руководителя
+            head_contacts = extract_contacts(head_person.get('contacts', []))
+            head_data['head_phone'] = head_contacts['phone']
+        
+        # Должность руководителя
+        head_data['head_post'] = company_data.get('headPost', '')
+    
+    except Exception as e:
+        head_data['head_error'] = str(e)
+    
+    return head_data
+
+def extract_accreditation_data(company_data):
+    """Извлекает данные об аккредитации"""
+    accred_data = {}
+    
+    try:
+        accreditation = company_data.get('accreditation', {})
+        if accreditation:
+            accred_data['accreditation_file_id'] = accreditation.get('idAccredScopeFile', '')
+        
+        # Номер аккредитации из regNumbers
+        reg_numbers = company_data.get('regNumbers', [])
+        if reg_numbers and isinstance(reg_numbers, list):
+            for reg in reg_numbers:
+                if reg.get('active'):
+                    accred_data['accreditation_number'] = reg.get('regNumber', '')
+                    accred_data['accreditation_begin_date'] = reg.get('beginDate', '')
+                    accred_data['accreditation_end_date'] = reg.get('endDate', '')
+                    break
+    
+    except Exception as e:
+        accred_data['accreditation_error'] = str(e)
+    
+    return accred_data
+
+def extract_applicant_data(company_data):
+    """Извлекает детальные данные заявителя"""
+    applicant_fields = {}
+    
+    try:
+        if 'applicant' not in company_data:
+            return applicant_fields
+        
+        applicant = company_data['applicant']
+        
+        # Основные данные
+        type_map = {1: 'Физическое лицо', 2: 'Юридическое лицо', 3: 'ИП'}
+        applicant_fields['applicant_type'] = type_map.get(applicant.get('idType'), '')
+        applicant_fields['applicant_legal_form'] = applicant.get('nameLegalForm', '')
+        applicant_fields['applicant_full_name'] = applicant.get('fullName', '')
+        applicant_fields['applicant_short_name'] = applicant.get('shortName', '')
+        applicant_fields['applicant_inn'] = applicant.get('inn', '')
+        applicant_fields['applicant_kpp'] = applicant.get('kpp', '')
+        applicant_fields['applicant_ogrn'] = applicant.get('ogrn', '')
+        
+        # Признаки
+        applicant_fields['applicant_is_government'] = "Да" if applicant.get('isGovernmentCompany') else "Нет"
+        applicant_fields['applicant_is_foreign'] = "Да" if applicant.get('isForeignOrganization') else "Нет"
+        
+        # Налоговый орган
+        applicant_fields['applicant_tax_authority'] = applicant.get('taxAuthorityName', '')
+        applicant_fields['applicant_tax_reg_date'] = applicant.get('taxAuthorityRegDate', '')
+        
+        # Руководитель заявителя
+        applicant_fields['applicant_head_post'] = applicant.get('headPost', '')
+        
+        # Формируем ФИО руководителя из person
+        person = applicant.get('person', {})
+        if person:
+            surname = person.get('surname', '')
+            name = person.get('name', '')
+            patronymic = person.get('patronymic', '')
+            applicant_fields['applicant_head_full_name'] = f"{surname} {name} {patronymic}".strip()
+        
+        # Контакты заявителя
+        contacts = extract_contacts(applicant.get('contacts', []))
+        applicant_fields['applicant_phone'] = contacts['phone']
+        applicant_fields['applicant_email'] = contacts['email']
+        
+        # Адрес заявителя
+        addresses = applicant.get('addresses', [])
+        if addresses:
+            addr = addresses[0]
+            applicant_fields['applicant_address'] = addr.get('fullAddress', '')
+            applicant_fields['applicant_postal_code'] = addr.get('postCode', '')
+    
+    except Exception as e:
+        applicant_fields['applicant_parse_error'] = str(e)
+    
+    return applicant_fields
+
+def extract_national_part(company_data):
+    """Извлекает данные из Национальной части Единого реестра"""
+    np_fields = {}
+    
+    try:
+        if 'actualInfoNationalPart' not in company_data:
+            np_fields['np_included'] = "Нет"
+            return np_fields
+        
+        np_fields['np_included'] = "Да"
+        np_data = company_data['actualInfoNationalPart']
+        
+        # Основные данные
+        np_fields['np_decision_number'] = np_data.get('decisionNumber', '')
+        np_fields['np_decision_date'] = np_data.get('decisionDate', '')
+        np_fields['np_service_number'] = np_data.get('serviceNumber', '')
+        np_fields['np_service_date'] = np_data.get('serviceDate', '')
+        
+        # Последнее решение
+        np_fields['np_last_decision_number'] = np_data.get('actualDecisionNumber', '')
+        np_fields['np_last_decision_date'] = np_data.get('actualDecisionDate', '')
+        
+        # Технические регламенты и ТН ВЭД из accredScopeUnstructList
+        tech_regs = set()
+        tn_ved_codes = set()
+        
+        scope_list = np_data.get('accredScopeUnstructList', [])
+        for scope_item in scope_list:
+            scope_unstruct = scope_item.get('accredScopeUnstruct', {})
+            
+            # Технические регламенты
+            regs_ts = scope_unstruct.get('regulationsTs', [])
+            for reg in regs_ts:
+                if reg:
+                    tech_regs.add(reg)
+            
+            # Коды ТН ВЭД
+            tn_ved = scope_unstruct.get('nationalPartTnVed', [])
+            for code in tn_ved:
+                if code:
+                    tn_ved_codes.add(code)
+        
+        np_fields['np_tech_regulations'] = " ; ".join(sorted(tech_regs))
+        np_fields['np_tn_ved_codes'] = " ; ".join(sorted(tn_ved_codes))
+        
+        # Право на проведение оценки
+        np_fields['np_has_right_eaeu'] = "Да" if tech_regs or tn_ved_codes else "Нет"
+        
+    except Exception as e:
+        np_fields['np_parse_error'] = str(e)
+    
+    return np_fields
+
+def extract_accreditation_scope(declaration_data):
+    """
+    Извлекает детальные данные области аккредитации из declaration.root
+    """
+    scope_fields = {}
+    
+    try:
+        if 'root' not in declaration_data or not declaration_data['root']:
+            return scope_fields
+        
+        # declaration.root - это массив
+        all_notes = []
+        all_tn_ved = []
+        all_measurement_types = []
+        all_ranges = []
+        all_methodologies = []
+        all_test_objects = []
+        all_measurement_groups = []
+        all_errors = []
+        
+        for root_item in declaration_data['root']:
+            # Основная информация
+            scope_fields['scope_type'] = root_item.get('name', '')
+            scope_fields['scope_accredited_entity'] = root_item.get('accreditedEntityName', '')
+            
+            # Адреса и места деятельности
+            addresses = root_item.get('addresses', [])
+            for address in addresses:
+                scope_fields['scope_address'] = address.get('name', '')
+                region_rf = address.get('regionRf', {})
+                if region_rf:
+                    scope_fields['scope_region'] = region_rf.get('name', '')
+                
+                # businessLineTypes - самое важное!
+                business_lines = address.get('businessLineTypes', [])
+                for business_line in business_lines:
+                    scope_fields['scope_business_type'] = business_line.get('name', '')
+                    
+                    # fields - содержит все ключевые данные
+                    fields = business_line.get('fields', [])
+                    for field in fields:
+                        field_name = field.get('name', '')
+                        field_values = field.get('values', [])
+                        
+                        if not field_values:
+                            continue
+                        
+                        # Объединяем значения
+                        values_str = " | ".join(str(v) for v in field_values if v)
+                        
+                        # Распределяем по категориям
+                        field_lower = field_name.lower()
+                        
+                        if 'примечан' in field_lower:
+                            all_notes.append(values_str)
+                        elif 'тн вэд' in field_lower or 'тн-вэд' in field_lower:
+                            all_tn_ved.append(values_str)
+                        elif 'вид' in field_lower and 'измер' in field_lower:
+                            all_measurement_types.append(values_str)
+                        elif 'диапазон' in field_lower or 'показател' in field_lower:
+                            all_ranges.append(values_str)
+                        elif 'методик' in field_lower:
+                            all_methodologies.append(values_str)
+                        elif 'объект' in field_lower and 'испыт' in field_lower:
+                            all_test_objects.append(values_str)
+                        elif 'группа' in field_lower and 'средств' in field_lower:
+                            all_measurement_groups.append(values_str)
+                        elif 'погрешност' in field_lower:
+                            all_errors.append(values_str)
+        
+        # Объединяем все собранные данные
+        if all_notes:
+            scope_fields['scope_note'] = " ; ".join(all_notes)
+        if all_tn_ved:
+            scope_fields['scope_tn_ved_code'] = " ; ".join(all_tn_ved)
+        if all_measurement_types:
+            scope_fields['scope_measurement_type'] = " ; ".join(all_measurement_types)
+        if all_ranges:
+            scope_fields['scope_measurement_range'] = " ; ".join(all_ranges)
+        if all_methodologies:
+            scope_fields['scope_methodology'] = " ; ".join(all_methodologies)
+        if all_test_objects:
+            scope_fields['scope_test_object'] = " ; ".join(all_test_objects)
+        if all_measurement_groups:
+            scope_fields['scope_measurement_group'] = " ; ".join(all_measurement_groups)
+        if all_errors:
+            scope_fields['scope_error'] = " ; ".join(all_errors)
+    
+    except Exception as e:
+        scope_fields['scope_parse_error'] = str(e)
+    
+    return scope_fields
 
 async def fetch_with_retry(session, url, params=None):
     """Запрос с повторными попытками"""
@@ -253,8 +566,64 @@ async def process_company(session, url, idx, total, stats, semaphore):
                 row["company_error"] = f"API ошибка: {company_data['_error']}"
                 stats["api_errors"] += 1
             else:
-                # Добавляем данные компании
-                row.update(flatten(company_data, "company"))
+                # Базовые данные компании
+                row['company.id'] = company_data.get('id', '')
+                row['company.fullName'] = company_data.get('fullName', '')
+                row['company.shortName'] = company_data.get('shortName', '')
+                row['company.regDate'] = company_data.get('regDate', '')
+                
+                # Статус
+                status = company_data.get('status', {})
+                if status:
+                    row['company.status.name'] = status.get('name', '')
+                
+                # Тип и стандарт
+                row['company.idType'] = company_data.get('idType', '')
+                row['company.idAccStandard'] = company_data.get('idAccStandard', '')
+                
+                # Номер аккредитации из regNumbers
+                reg_numbers = company_data.get('regNumbers', [])
+                if reg_numbers:
+                    active_reg = None
+                    for reg in reg_numbers:
+                        if reg.get('active'):
+                            active_reg = reg
+                            break
+                    if not active_reg and reg_numbers:
+                        active_reg = reg_numbers[0]
+                    
+                    if active_reg:
+                        row['company.regNumbers'] = active_reg.get('regNumber', '')
+                
+                # Контакты компании
+                contacts = extract_contacts(company_data.get('contacts', []))
+                row['company_phone'] = contacts['phone']
+                row['company_email'] = contacts['email']
+                row['company_website'] = contacts['website']
+                row['company_fax'] = contacts['fax']
+                
+                # Адрес компании
+                address = extract_address(company_data.get('addresses', []))
+                row['company_address_full'] = address['full']
+                row['company_address_postal_code'] = address['postal_code']
+                row['company_address_region'] = address['region']
+                
+                # Руководитель
+                head_data = extract_head_person(company_data)
+                row.update(head_data)
+                
+                # Данные об аккредитации
+                accred_data = extract_accreditation_data(company_data)
+                row.update(accred_data)
+                
+                # Детальные данные заявителя
+                applicant_data = extract_applicant_data(company_data)
+                row.update(applicant_data)
+                
+                # Данные национальной части
+                national_part_data = extract_national_part(company_data)
+                row.update(national_part_data)
+                
                 stats["success_companies"] += 1
             
             # 2. Получаем декларацию (если есть)
@@ -270,7 +639,10 @@ async def process_company(session, url, idx, total, stats, semaphore):
                 decl_data = await fetch_with_retry(session, decl_url, params)
                 
                 if "_error" not in decl_data:
-                    row.update(flatten(decl_data, "declaration"))
+                    # ВАЖНО: Детальные данные области аккредитации
+                    scope_data = extract_accreditation_scope(decl_data)
+                    row.update(scope_data)
+                    
                     row["declaration_doc_id"] = doc_id
                     stats["success_declarations"] += 1
                 else:
@@ -345,7 +717,7 @@ def append_data_to_excel(rows, sorted_columns, filename):
         raise
 
 def save_to_csv(rows, columns, filename):
-    """Сохраняет данные в CSV файл (альтернативный формат)"""
+    """Сохраняет данные в CSV файл"""
     try:
         sorted_columns = sorted(columns)
         russian_headers = [translate_column_name(col) for col in sorted_columns]
@@ -410,13 +782,13 @@ def print_results(stats):
 
 async def main():
     """Основная функция"""
-    log("Запуск парсера FSA для 38000+ реестров")
+    log("Запуск УЛУЧШЕННОГО парсера FSA")
     log("=" * 70)
     
     # Проверяем файл со ссылками
     if not Path(LINKS_FILE).exists():
         log(f"ОШИБКА: Файл {LINKS_FILE} не найден!")
-        log("Сначала запустите collect_links.py для сбора ссылок")
+        log("Сначала запустите collect_links_improved.py для сбора ссылок")
         return
     
     # Читаем ссылки
@@ -444,15 +816,10 @@ async def main():
         "total_time": 0
     }
     
-    # Создаем Excel файл с заголовками заранее
-    # Сначала соберем базовые колонки, которые точно будут
-    base_columns = {
-        "source_url", "company_id", "parsing_timestamp", 
-        "processing_time", "error", "company_error", 
-        "declaration_error", "declaration_doc_id"
-    }
+    # Базовые колонки
+    base_columns = set(COLUMN_TRANSLATIONS.keys())
     
-    log("Создаю Excel файл с базовыми заголовками...")
+    log("Создаю Excel файл с заголовками...")
     sorted_columns = create_excel_with_headers(base_columns, OUTPUT_FILE)
     if not sorted_columns:
         log("ОШИБКА: Не удалось создать Excel файл")
@@ -475,7 +842,7 @@ async def main():
         
         # Обрабатываем результаты по мере готовности
         completed = 0
-        batch_rows = []  # Временный буфер для пакетной записи
+        batch_rows = []
         batch_size = 100
         
         for future in asyncio.as_completed(tasks):
@@ -492,12 +859,10 @@ async def main():
                 if completed % batch_size == 0:
                     log(f"Обработано: {completed:,}/{total:,} ({completed/total*100:.1f}%)")
                     
-                    # Обновляем файл с новыми данными
                     try:
-                        # Создаем новый файл с полным набором колонок, если он изменился
+                        # Создаем новый файл с полным набором колонок, если изменились
                         current_columns = sorted(all_columns)
                         if set(current_columns) != set(sorted_columns):
-                            # Создаем новый файл с обновленными заголовками
                             log("Обнаружены новые колонки, обновляю заголовки...")
                             sorted_columns = create_excel_with_headers(all_columns, OUTPUT_FILE)
                             # Перезаписываем все данные
@@ -507,10 +872,8 @@ async def main():
                             append_data_to_excel(batch_rows, sorted_columns, OUTPUT_FILE)
                     except Exception as e:
                         log(f"Ошибка при промежуточном сохранении: {str(e)}")
-                        # Сохраняем в CSV как запасной вариант
                         save_to_csv(batch_rows, all_columns, f"backup_{completed}.csv")
                     
-                    # Добавляем пакет к основным данным и очищаем буфер
                     all_rows.extend(batch_rows)
                     batch_rows = []
                     
@@ -521,11 +884,9 @@ async def main():
     # Добавляем оставшиеся данные
     if batch_rows:
         try:
-            # Проверяем, нужно ли обновить заголовки
             current_columns = sorted(all_columns)
             if set(current_columns) != set(sorted_columns):
                 sorted_columns = create_excel_with_headers(all_columns, OUTPUT_FILE)
-                # Перезаписываем все данные
                 append_data_to_excel(all_rows, sorted_columns, OUTPUT_FILE)
             else:
                 append_data_to_excel(batch_rows, sorted_columns, OUTPUT_FILE)
@@ -535,7 +896,7 @@ async def main():
         
         all_rows.extend(batch_rows)
     
-    # Также сохраняем в CSV для надежности
+    # Сохраняем в CSV для надежности
     log("Создаю резервную копию в CSV формате...")
     save_to_csv(all_rows, all_columns, OUTPUT_CSV)
     
@@ -553,10 +914,7 @@ if __name__ == "__main__":
     # Исправляем кодировку для Windows
     if sys.platform == "win32":
         import io
-        import locale
-        
         try:
-            # Пытаемся установить UTF-8
             sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
             sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
         except:

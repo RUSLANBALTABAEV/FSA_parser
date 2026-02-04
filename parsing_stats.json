@@ -1,0 +1,14 @@
+{
+  "start_time": "2026-02-03T17:45:37.058819",
+  "total_companies": 3,
+  "success_companies": 3,
+  "success_declarations": 3,
+  "errors": 0,
+  "api_errors": 0,
+  "auth_errors": 0,
+  "exceptions": 0,
+  "total_time": 67.35000000000001,
+  "end_time": "2026-02-03T17:46:42.350533",
+  "success_rate": 100.0,
+  "avg_time_per_company": 22.45
+}

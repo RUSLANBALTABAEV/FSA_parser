@@ -1,5 +1,5 @@
 {
-  "start_time": "2026-02-04T14:01:55.337875",
+  "start_time": "2026-02-04T14:23:25.206860",
   "total_companies": 3,
   "success_companies": 0,
   "success_declarations": 0,
@@ -7,8 +7,8 @@
   "api_errors": 3,
   "auth_errors": 3,
   "exceptions": 0,
-  "total_time": 130.95,
-  "end_time": "2026-02-04T14:04:03.544988",
+  "total_time": 2.34,
+  "end_time": "2026-02-04T14:23:26.029356",
   "success_rate": 0.0,
-  "avg_time_per_company": 43.65
+  "avg_time_per_company": 0.78
 }

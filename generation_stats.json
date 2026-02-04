@@ -1,0 +1,24 @@
+{
+  "total_links_generated": 6003,
+  "working_links_found": 6003,
+  "id_range_used": {
+    "start": 37453,
+    "end": 43455,
+    "step": 1
+  },
+  "generation_method": "ID range generation",
+  "base_url": "https://pub.fsa.gov.ru",
+  "links_sample": [
+    "https://pub.fsa.gov.ru/ral/view/37453/current-aa",
+    "https://pub.fsa.gov.ru/ral/view/37454/current-aa",
+    "https://pub.fsa.gov.ru/ral/view/37455/current-aa",
+    "https://pub.fsa.gov.ru/ral/view/37456/current-aa",
+    "https://pub.fsa.gov.ru/ral/view/37457/current-aa",
+    "https://pub.fsa.gov.ru/ral/view/37458/current-aa",
+    "https://pub.fsa.gov.ru/ral/view/37459/current-aa",
+    "https://pub.fsa.gov.ru/ral/view/37460/current-aa",
+    "https://pub.fsa.gov.ru/ral/view/37461/current-aa",
+    "https://pub.fsa.gov.ru/ral/view/37462/current-aa"
+  ],
+  "generation_date": "2026-02-04T15:25:41.423609"
+}

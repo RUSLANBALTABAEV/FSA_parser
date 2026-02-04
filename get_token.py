@@ -1,94 +1,90 @@
+"""
+СКРИПТ ДЛЯ ПОЛУЧЕНИЯ ТОКЕНА ВРУЧНУЮ
+Запустите этот файл первым, чтобы получить токен
+"""
 import webbrowser
 import time
+import requests
 import json
-import os
 
 def get_token_manually():
-    """Инструкция для получения токена"""
-    print("=" * 60)
-    print("ИНСТРУКЦИЯ ПО ПОЛУЧЕНИЮ ТОКЕНА:")
-    print("=" * 60)
-    print("\n1. Браузер откроется автоматически...")
+    """Пошаговая инструкция для получения токена"""
+    print("=" * 70)
+    print("ПОЛУЧЕНИЕ ТОКЕНА ДЛЯ FSA API")
+    print("=" * 70)
     
-    # Открываем сайт
+    print("\n1. Сейчас откроется браузер...")
+    time.sleep(2)
     webbrowser.open("https://pub.fsa.gov.ru/ral")
     
-    print("2. Нажмите F12 (откроются инструменты разработчика)")
+    print("2. После загрузки страницы нажмите F12 (инструменты разработчика)")
     print("3. Перейдите на вкладку 'Network' (Сеть)")
     print("4. Нажмите F5 (обновить страницу)")
-    print("5. В списке запросов найдите любой к API (содержит /api/v1/)")
-    print("6. Кликните на запрос")
-    print("7. Во вкладке 'Headers' найдите 'Authorization'")
-    print("8. Скопируйте весь токен (начинается с 'Bearer ...')")
-    print("9. Вставьте его ниже\n")
+    print("5. В списке запросов найдите любой запрос к API (содержит '/api/v1/')")
+    print("6. Кликните на этот запрос")
+    print("7. Во вкладке 'Headers' найдите заголовок 'Authorization'")
+    print("8. Скопируйте ВЕСЬ текст (начинается с 'Bearer ey...')")
+    print("\n" + "=" * 70)
     
-    token = input("Вставьте ваш токен (с 'Bearer '): ").strip()
+    token = input("Вставьте скопированный токен: ").strip()
     
-    if token.startswith("Bearer "):
-        # Сохраняем в config.py
-        with open("config.py", "w", encoding="utf-8") as f:
-            f.write(f'TOKEN = "{token}"\n')
-            f.write('BASE_URL = "https://pub.fsa.gov.ru"\n')
-            f.write('API_BASE = "https://pub.fsa.gov.ru/api/v1"\n')
-        
-        print(f"\nТокен сохранен в config.py")
-        
-        # Проверяем токен
-        check_token(token)
-    else:
-        print("\nОшибка: Токен должен начинаться с 'Bearer '")
-        print("Пример правильного токена:")
-        print("Bearer eyJhbGciOiJFZERTQSJ9...")
-        get_token_manually()
-
-def check_token(token):
-    """Проверка валидности токена"""
-    import requests
+    if not token.startswith("Bearer "):
+        print("ОШИБКА: Токен должен начинаться с 'Bearer '!")
+        return None
     
-    headers = {
-        "Authorization": token,
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    }
-    
+    # Проверяем токен
     print("\nПроверяю токен...")
+    headers = {"Authorization": token}
     
     try:
-        # Пробный запрос
-        url = "https://pub.fsa.gov.ru/api/v1/ral/common/companies?page=0&size=1"
-        response = requests.get(url, headers=headers, timeout=10)
-        
-        print(f"Статус ответа: {response.status_code}")
+        response = requests.get(
+            "https://pub.fsa.gov.ru/api/v1/ral/common/companies?page=0&size=1",
+            headers=headers,
+            timeout=10
+        )
         
         if response.status_code == 200:
-            print("Токен рабочий!")
             data = response.json()
-            print(f"Всего компаний в реестре: {data.get('totalElements', '?')}")
+            total_companies = data.get("totalElements", 0)
+            print(f"✓ Токен рабочий!")
+            print(f"✓ Найдено компаний в реестре: {total_companies:,}")
+            
+            # Сохраняем токен
+            with open("config.py", "w", encoding="utf-8") as f:
+                f.write(f'TOKEN = "{token}"\n')
+                f.write('BASE_URL = "https://pub.fsa.gov.ru"\n')
+                f.write('API_BASE = "https://pub.fsa.gov.ru/api/v1"\n')
+            
+            print(f"\n✓ Токен сохранен в config.py")
+            return token
+            
         elif response.status_code == 401:
-            print("Токен недействителен (ошибка 401)")
-            print("Возможно, токен устарел или неверный")
-            retry = input("Попробовать снова? (y/n): ")
-            if retry.lower() == 'y':
-                get_token_manually()
+            print("✗ Токен недействителен (ошибка 401)")
+            return None
         else:
-            print(f"Неожиданный статус: {response.status_code}")
-            print(f"Ответ: {response.text[:200]}")
-    
+            print(f"✗ Ошибка: {response.status_code}")
+            return None
+            
     except Exception as e:
-        print(f"Ошибка при проверке: {str(e)}")
+        print(f"✗ Ошибка соединения: {str(e)}")
+        return None
 
 def main():
     """Основная функция"""
-    print("ПОЛУЧЕНИЕ ТОКЕНА ДЛЯ FSA API")
-    print("-" * 40)
+    print("Этот скрипт поможет получить токен для доступа к API FSA")
+    print("Без токена основной парсер не будет работать!")
+    print("\nНажмите Enter для продолжения...")
+    input()
     
-    # Если config.py уже существует
-    if os.path.exists("config.py"):
-        print("config.py уже существует")
-        choice = input("Заменить токен? (y/n): ")
-        if choice.lower() != 'y':
-            return
+    token = get_token_manually()
     
-    get_token_manually()
+    if token:
+        print("\n" + "=" * 70)
+        print("ТОКЕН УСПЕШНО ПОЛУЧЕН!")
+        print("Теперь запустите main.py для парсинга данных")
+        print("=" * 70)
+    else:
+        print("\nНе удалось получить токен. Попробуйте снова.")
 
 if __name__ == "__main__":
     main()

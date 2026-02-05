@@ -27,7 +27,7 @@ CONFIG = {
     "total_records": 38000,
     
     # Токен авторизации
-    "auth_token": "Bearer eyJhbGciOiJFZERTQSJ9.eyJpc3MiOiJGQVUgTklBIiwic3ViIjoiYW5vbnltb3VzIiwiZXhwIjoxNzcwMDY5MTA4LCJpYXQiOjE3NzAwNDAzMDh9.NdwC9BJ-rOk16GOq5GX8T1FmY4rpZXA-pfZjuLT3JeCYaZDc_3sIchWivorKJi4TpAF2-hv9ph1SRD7SzcluBA",
+    "auth_token": "Bearer eyJhbGciOiJFZERTQSJ9.eyJpc3MiOiJGQVUgTklBIiwic3ViIjoiYW5vbnltb3VzIiwiZXhwIjoxNzcwMjk3ODA3LCJpYXQiOjE3NzAyNjkwMDd9.--K03QrNpehr2-0opkxE_63AJSErHdE1g2BMinuQlNFTtSJg058RhXKgSDcJ-nl3Wb_xJTMCURPFo5J0z8bKAw",
 }
 
 # ================= ЛОГИРОВАНИЕ =================

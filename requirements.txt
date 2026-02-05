@@ -1,21 +1,5 @@
-# Основные зависимости
-aiohttp>=3.9.0
-beautifulsoup4>=4.12.0
-lxml>=4.9.0
-openpyxl>=3.1.0
-requests>=2.31.0
-
-# Дополнительные зависимости для парсинга
-html5lib>=1.1
-cssselect>=1.2.0
-
-# Для проверки соединения
-ping3>=4.0.0
-
-# Для работы с данными
-pandas>=2.0.0
-numpy>=1.24.0
-
-# Утилиты
-tqdm>=4.65.0
-colorama>=0.4.6
+aiohttp 
+pandas 
+openpyxl 
+requests 
+beautifulsoup4
